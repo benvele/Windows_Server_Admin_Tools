@@ -12,36 +12,37 @@
       3) Save the output of the last command in a text file
       4) Enter path of text file into $Email_Password Variable
       
+    To use the EventLog function at the bottom you will need to run the following one-time command first:
+      -> Write-EventLog -LogName Application -Source "Password Expiration Script"
+      
     The Active Directory Module is needed to run the command. See the following link for instructions to install:
     https://docs.microsoft.com/en-us/powershell/module/addsadministration/?view=win10-ps
 #>
 
-#These variables are the ones that are most likely to be updated
-$daysbeforeexpiretonotify = 7
-$Email = #Add email here
-$Email_Password = Get-Content #Path to password SecureString Hex File here
-$SMTPServer = #Your SMTP server address here
-$Email_Subject = "Your Active Directory password will expire in $($user.DaysToExpiry) days"
-$Email_Body = “Your password will expire at $($user.ExpiryDate) (EST).”
+#These variables are the ones that are most likely to be updated. Email Subject and Body are set in foreach statement
+$daysbeforeexpiretonotify = 14
+$Email = "example@example.com"
+$SMTPServer = "your.smtp.server.here"
 
-#No Changes Needed Below Here
-$Credential = New-Object -TypeName PSCredential -ArgumentList $Email, ($Email_Password | ConvertTo-SecureString)  
-$now = (get-date).ToFileTime()  
-$threshold = (get-date).adddays($daysbeforeexpiretonotify).ToFileTime()  
-$users = Get-ADUser -filter { Enabled -eq $True -and PasswordNeverExpires -eq $False } –Properties "msDS-UserPasswordExpiryTimeComputed",mail -searchbase "OU=Company,DC=company,DC=local" |   
+
+$users = ''
+$Credential = New-Object -TypeName PSCredential -ArgumentList $Email, (Get-Content -Path "C:\PathTo\Scripts\Password_Expiration\hash.txt" | ConvertTo-SecureString)
+$sentToEmails = ''
+$now = (get-date).ToFileTime()
+$startTime = get-date
+$threshold = (get-date).adddays($daysbeforeexpirytonotify).ToFileTime()  
+$users = Get-ADUser -filter { Enabled -eq $True -and PasswordNeverExpires -eq $False } -Properties "msDS-UserPasswordExpiryTimeComputed",mail ` -searchbase "OU=Company,DC=company,DC=local" |   
    where { $_."msDS-UserPasswordExpiryTimeComputed" -lt $threshold -and $_."msDS-UserPasswordExpiryTimeComputed" -gt $now }
    Select-Object "Name",  
-                 "Mail",  
-                 @{Name="ExpireDate";Expression={  
-                       [datetime]::FromFileTime($_."msDS-UserPasswordExpiryTimeComputed")  
-                       }  
-                 },  
-                 @{Name="DaysToExpire";Expression={  
-                        [int](($_."msDS-UserPasswordExpiryTimeComputed" - $now) / 864000000000)  
-                        }  
-                 } |  
+                 "Mail" |  
     sort-object name  
   
 foreach ($user in $users) {
+    $Email_Subject = "Your password will expire in $([int](($user.'msDS-UserPasswordExpiryTimeComputed' - $now) / 864000000000)) days"
+    $Email_Body = "$($user.Name), your password will expire at $([datetime]::FromFileTime($user.'msDS-UserPasswordExpiryTimeComputed')) (EST)."
     Send-MailMessage -To $user.mail -From $Email  -Subject $Email_Subject -Body $Email_Body -Credential ($Credential) -SmtpServer $SMTPServer -Port 587
+    $sentToEmails += $user.Mail + ", "
 }
+
+$endTime = get-date
+Write-EventLog -LogName Application -Source "Password Expiration Script" -EntryType Information -EventId 100 -Message "Password Expiration script started at $($startTime). Password expiration notifications were sent to $($sentToEmails) and the script ended at $($endTime)."
