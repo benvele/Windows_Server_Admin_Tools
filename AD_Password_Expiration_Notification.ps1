@@ -17,6 +17,12 @@
       
     The Active Directory Module is needed to run the command. See the following link for instructions to install:
     https://docs.microsoft.com/en-us/powershell/module/addsadministration/?view=win10-ps
+    
+    TIP: You can send emails using HTML. Create an email in outlook and send it to yourself. From the received email, view source and copy the HTML. 
+    Put the HTML in the $Email_Body variable and add the -BodyAsHtml flag to the Send-MailMessage command.
+    
+    NOTE: In some cases I have to specify the server in the Get-ADUser command. To do this just add the -Server flag with the IP or Hostname as a String at the end 
+    of the command.
 #>
 
 #These variables are the ones that are most likely to be updated. Email Subject and Body are set in foreach statement
@@ -28,11 +34,9 @@ $SMTPServer = "your.smtp.server.here"
 $users = ''
 $Credential = New-Object -TypeName PSCredential -ArgumentList $Email, (Get-Content -Path "C:\PathTo\Scripts\Password_Expiration\hash.txt" | ConvertTo-SecureString)
 $sentToEmails = ''
-$now = (get-date).ToFileTime()
-$startTime = get-date
-$threshold = (get-date).adddays($daysbeforeexpirytonotify).ToFileTime()  
+$startTime = get-date 
 $users = Get-ADUser -filter { Enabled -eq $True -and PasswordNeverExpires -eq $False } -Properties "msDS-UserPasswordExpiryTimeComputed",mail ` -searchbase "OU=Company,DC=company,DC=local" |   
-   where { $_."msDS-UserPasswordExpiryTimeComputed" -lt $threshold -and $_."msDS-UserPasswordExpiryTimeComputed" -gt $now }
+   where { $_."msDS-UserPasswordExpiryTimeComputed" -lt ((get-date).AddDays($daysbeforeexpiretonotify).ToFileTime()) -and $_."msDS-UserPasswordExpiryTimeComputed" -gt ((get-date).ToFileTime()) }
    Select-Object "Name",  
                  "Mail" |  
     sort-object name  
