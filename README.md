@@ -1,7 +1,6 @@
-# AD_Admin_Tools
+# Windows_Server_Admin_Tools
 
-These are all tools that I have created to help manage different aspects of Windows Active Directory. I am slowly moving my private store of these scripts to this repo 
-for everyone to use if they deem them helpful.
+These are all tools that I have created to help manage different aspects of Windows Server, such as AD and WSUS. I am slowly moving my private store of these scripts to this repo for everyone to use if they deem them helpful.
 
 I provide no warranty for and very rarely update these scripts. Feel free to copmment or add issues but I may not be able to help.
 
